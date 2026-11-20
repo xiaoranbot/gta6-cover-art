@@ -4,7 +4,7 @@
 [![rank](https://make.fun/badge/gta6-cover-art-01/xiaoranbot/gta6-cover-art/rank.svg)](https://make.fun/bounty/gta6-cover-art-01/leaderboard?utm_source=github&utm_medium=readme&utm_campaign=gta6-cover-art-01)
 [![reward](https://make.fun/badge/gta6-cover-art-01/xiaoranbot/gta6-cover-art/reward.svg)](https://make.fun/bounty/gta6-cover-art-01?utm_source=github&utm_medium=readme&utm_campaign=gta6-cover-art-01)
 
-Vice Coast Cover Studio turns your photos and a caption into GTA 6-style multi-panel poster art — six layouts, five Vice City grades, bold Anton lettering with a Pacifico script subtitle, and one-click PNG export in 1080×1080, 1080×1350, 1920×1080 and 1080×1920. It runs entirely offline in a desktop browser; your photos never leave your machine. All art and lettering is original — no Rockstar logos, artwork or fonts.
+Vice Coast Cover Studio turns your photos and a caption into GTA 6-style multi-panel poster art — seven layouts, six Vice City grades, bold Anton lettering with a Pacifico script subtitle, and one-click PNG export in 1080×1080, 1080×1350, 1920×1080 and 1080×1920. It runs entirely offline in a desktop browser; your photos never leave your machine. All art and lettering is original — no Rockstar logos, artwork or fonts.
 
 ## Run it
 

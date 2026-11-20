@@ -9,7 +9,7 @@
 // Outside the grader's container, MAKEFUN_OUTPUT_DIR stands in for /output:
 //   mkdir -p out && MAKEFUN_OUTPUT_DIR=out node main.ts
 
-import { cpSync, existsSync, mkdirSync, writeFileSync } from 'node:fs';
+import { cpSync, existsSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { buildDossier } from './vendor/makefun-app.ts';
@@ -32,11 +32,15 @@ function copyTreeIfPresent(from, to) {
   cpSync(from, to, { recursive: true });
 }
 
-const here = fileURLToPath(new URL('.', import.meta.url));
-const out = process.env.MAKEFUN_OUTPUT_DIR ?? '/output';
+function main() {
+  const here = fileURLToPath(new URL('.', import.meta.url));
+  const outDir = process.env.MAKEFUN_OUTPUT_DIR || '/output';
+  rmSync(outDir, { recursive: true, force: true });
+  mkdirSync(outDir, { recursive: true });
+  copyTreeIfPresent(join(here, 'app'), join(outDir, 'app'));
+  copyTreeIfPresent(join(here, 'screenshots'), join(outDir, 'screenshots'));
+  const dossier = buildDossier(outDir, DOSSIER_CAPS);
+  writeFileSync(join(outDir, 'dossier.json'), dossier);
+}
 
-mkdirSync(out, { recursive: true });
-cpSync(join(here, 'app'), join(out, 'app'), { recursive: true });
-copyTreeIfPresent(join(here, 'screenshots'), join(out, 'screenshots'));
-
-writeFileSync(join(out, 'dossier.json'), buildDossier(out, DOSSIER_CAPS));
+main();

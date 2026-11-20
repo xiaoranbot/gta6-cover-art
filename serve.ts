@@ -13,7 +13,7 @@ const portIndex = args.indexOf('--port');
 const requested = portIndex === -1 ? 8080 : Number(args[portIndex + 1]);
 const port = Number.isInteger(requested) && requested > 0 && requested < 65536 ? requested : 8080;
 
-const MIME: Record<string, string> = {
+const MIME = {
   '.html': 'text/html; charset=utf-8',
   '.js': 'text/javascript; charset=utf-8',
   '.mjs': 'text/javascript; charset=utf-8',
@@ -25,49 +25,41 @@ const MIME: Record<string, string> = {
   '.gif': 'image/gif',
   '.webp': 'image/webp',
   '.svg': 'image/svg+xml',
-  '.ico': 'image/x-icon',
-  '.woff2': 'font/woff2',
-  '.woff': 'font/woff',
   '.ttf': 'font/ttf',
   '.otf': 'font/otf',
-  '.bin': 'application/octet-stream',
-  '.wasm': 'application/wasm',
-  '.wav': 'audio/wav',
-  '.mp3': 'audio/mpeg',
-  '.ogg': 'audio/ogg',
+  '.woff': 'font/woff',
+  '.woff2': 'font/woff2',
   '.txt': 'text/plain; charset=utf-8',
 };
 
-createServer((request, response) => {
-  const url = new URL(request.url ?? '/', 'http://localhost');
-  let pathname: string;
+function safePath(urlPath) {
+  const decoded = decodeURIComponent(urlPath.split('?')[0].split('#')[0]);
+  const joined = resolve(join(root, normalize(decoded)));
+  if (joined !== root && !joined.startsWith(root + sep)) return null;
+  return joined;
+}
+
+const server = createServer((req, res) => {
+  const path = safePath(req.url || '/');
+  if (!path) {
+    res.writeHead(403, { 'content-type': 'text/plain; charset=utf-8' });
+    res.end('Forbidden\n');
+    return;
+  }
+  let target = path;
   try {
-    pathname = decodeURIComponent(url.pathname);
+    const st = statSync(target);
+    if (st.isDirectory()) target = join(target, 'index.html');
   } catch {
-    response.writeHead(400).end('bad request');
+    res.writeHead(404, { 'content-type': 'text/plain; charset=utf-8' });
+    res.end('Not found\n');
     return;
   }
-  if (pathname.endsWith('/')) pathname += 'index.html';
-  const file = resolve(join(root, normalize(pathname)));
-  if (file !== root && !file.startsWith(root + sep)) {
-    response.writeHead(403).end('forbidden');
-    return;
-  }
-  let size: number;
-  try {
-    const stats = statSync(file);
-    if (!stats.isFile()) throw new Error('not a file');
-    size = stats.size;
-  } catch {
-    response.writeHead(404).end('not found');
-    return;
-  }
-  response.writeHead(200, {
-    'content-type': MIME[extname(file).toLowerCase()] ?? 'application/octet-stream',
-    'content-length': size,
-    'cache-control': 'no-store',
-  });
-  createReadStream(file).pipe(response);
-}).listen(port, '127.0.0.1', () => {
-  console.log(`app/ is on http://localhost:${port}`);
+  const type = MIME[extname(target).toLowerCase()] || 'application/octet-stream';
+  res.writeHead(200, { 'content-type': type });
+  createReadStream(target).pipe(res);
+});
+
+server.listen(port, () => {
+  console.log(`Vice Coast Cover Studio serving app/ at http://localhost:${port}`);
 });

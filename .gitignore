@@ -1,2 +1,2 @@
-# local build output (main.ts writes here when MAKEFUN_OUTPUT_DIR=out)
 out/
+.DS_Store
