@@ -355,6 +355,14 @@ function paintPalm(ctx, x, y, s, lean, flip) {
   ctx.restore();
 }
 
+// Lit-window palette for the skyline: warm amber glass, randomised per pane.
+const SKYLINE_WINDOW_RED = 255;
+const SKYLINE_WINDOW_BLUE = 110;
+const SKYLINE_WINDOW_GREEN_MIN = 190;
+const SKYLINE_WINDOW_GREEN_SPAN = 50;
+const SKYLINE_WINDOW_ALPHA_MIN = 0.45;
+const SKYLINE_WINDOW_ALPHA_SPAN = 0.45;
+
 function paintSkyline(ctx, W, H) {
   const rnd = seededRandom(20261120);
   const base = H;
@@ -375,7 +383,7 @@ function paintSkyline(ctx, W, H) {
       for (let c = 0; c < cols; c++) {
         for (let r = 0; r < rows; r++) {
           if (rnd() < 0.28) {
-            ctx.fillStyle = `rgba(255, ${190 + Math.floor(rnd() * 50)}, 110, ${0.45 + rnd() * 0.45})`;
+            ctx.fillStyle = `rgba(${SKYLINE_WINDOW_RED}, ${SKYLINE_WINDOW_GREEN_MIN + Math.floor(rnd() * SKYLINE_WINDOW_GREEN_SPAN)}, ${SKYLINE_WINDOW_BLUE}, ${SKYLINE_WINDOW_ALPHA_MIN + rnd() * SKYLINE_WINDOW_ALPHA_SPAN})`;
             ctx.fillRect(bx + W * 0.008 + c * W * 0.018, by + H * 0.012 + r * H * 0.03, W * 0.008, H * 0.012);
             ctx.fillStyle = block;
           }

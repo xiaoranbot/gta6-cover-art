@@ -343,8 +343,11 @@ function restoreFromHash() {
   if (!LAYOUTS[state.layout]) state.layout = 'heroStrip';
   if (!GRADES[state.grade]) state.grade = 'sunset';
   // a crafted link could carry an out-of-range title size; clamp it
+  // (the slider itself only offers 60–150)
+  const TITLE_SIZE_MIN = 60;
+  const TITLE_SIZE_MAX = 150;
   if (typeof state.titleSize === 'number') {
-    state.titleSize = Math.max(60, Math.min(150, Math.round(state.titleSize)));
+    state.titleSize = Math.max(TITLE_SIZE_MIN, Math.min(TITLE_SIZE_MAX, Math.round(state.titleSize)));
   }
   if (Array.isArray(parsed.slots) && parsed.slots.length === state.slots.length) {
     state.slots = parsed.slots.map((s, i) => ({
