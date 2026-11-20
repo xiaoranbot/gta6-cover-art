@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Vice Coast Cover Studio — GTA-style poster maker</title>
+<meta name="description" content="Turn your photos and a caption into a GTA-style multi-panel poster. Offline, free, no upload.">
+<link rel="stylesheet" href="./style.css">
+</head>
+<body>
+<header class="topbar">
+  <h1>Vice Coast Cover Studio</h1>
+  <p class="tagline">Your photos + one caption = a Vice City poster. No upload, no account, fully offline.</p>
+  <span class="offline">● works offline</span>
+</header>
+<main class="app">
+  <section class="controls" aria-label="Cover controls">
+    <div class="card">
+      <h2>1 · Photos</h2>
+      <div class="row">
+        <label class="field"><span>Add photos (up to 4)</span>
+          <input id="photoInput" type="file" accept="image/*" multiple>
+        </label>
+      </div>
+      <div class="row">
+        <button id="loadSamples" type="button">Load sample photos</button>
+        <button id="fillAll" type="button" class="ghost">Fill all panels</button>
+      </div>
+      <div class="tray" id="tray" aria-label="Photo tray"></div>
+      <p class="hint">Click a photo in the tray to use it in the selected panel. Or drag &amp; drop image files anywhere on the page.</p>
+    </div>
+
+    <div class="card">
+      <h2>2 · Layout</h2>
+      <div class="row" id="layoutBtns"></div>
+      <p class="hint" id="slotLabel">Panel 1 of 4</p>
+      <label class="field"><span>Zoom — <output id="zoomVal">100%</output></span>
+        <input id="zoom" type="range" min="50" max="300" value="100">
+      </label>
+      <p class="hint" id="panHint">Drag on the cover to move the photo inside its panel.</p>
+      <div class="row"><button id="resetCrop" type="button" class="ghost">Reset crop</button></div>
+    </div>
+
+    <div class="card">
+      <h2>3 · Colour grade</h2>
+      <div class="row" id="gradeBtns"></div>
+      <p class="hint">Grades are gradient maps drawn on canvas — not a CSS filter.</p>
+    </div>
+
+    <div class="card">
+      <h2>4 · Lettering</h2>
+      <label class="field"><span>Main title (Anton, all caps)</span>
+        <input id="titleInput" type="text" maxlength="24" value="VICE COAST">
+      </label>
+      <label class="field"><span>Subtitle (handwritten script)</span>
+        <input id="subtitleInput" type="text" maxlength="40" value="Sunset Heist">
+      </label>
+      <label class="field"><span>Small tagline</span>
+        <input id="taglineInput" type="text" maxlength="40" value="LEONIDA  •  EST. 2026">
+      </label>
+      <div class="row">
+        <label class="field"><span>Title size — <output id="titleSizeVal">100%</output></span>
+          <input id="titleSize" type="range" min="60" max="150" value="100">
+        </label>
+        <label class="field"><span>Title colour</span>
+          <input id="titleColor" type="color" value="#ffffff">
+        </label>
+        <label class="field"><span>Title position</span>
+          <select id="titlePos">
+            <option value="bottom">Bottom</option>
+            <option value="top">Top</option>
+          </select>
+        </label>
+      </div>
+      <div class="checks">
+        <label><input id="outlineChk" type="checkbox" checked> Bold outline</label>
+        <label><input id="shadowChk" type="checkbox" checked> Drop shadow</label>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>5 · Poster finish</h2>
+      <div class="checks">
+        <label><input id="frameChk" type="checkbox" checked> White frame</label>
+        <label><input id="halftoneChk" type="checkbox" checked> Halftone dots</label>
+        <label><input id="grainChk" type="checkbox" checked> Film grain</label>
+        <label><input id="vignetteChk" type="checkbox" checked> Vignette</label>
+        <label><input id="sunChk" type="checkbox" checked> Sunset disc</label>
+        <label><input id="palmsChk" type="checkbox" checked> Palm silhouettes</label>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Presets &amp; play</h2>
+      <div class="row" id="presetBtns"></div>
+      <div class="row">
+        <button id="randomize" type="button">🎲 Surprise me</button>
+        <button id="undo" type="button">↩ Undo</button>
+        <button id="redo" type="button">↪ Redo</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Export size</h2>
+      <div class="row" id="sizeBtns"></div>
+    </div>
+  </section>
+
+  <section class="stage" aria-label="Cover preview">
+    <div class="preview-wrap">
+      <canvas id="cover" width="860" height="860" aria-label="The cover preview"></canvas>
+    </div>
+    <p class="hint">Click a panel to select it, then drag inside it to reposition the photo and use the zoom slider to crop.</p>
+    <div class="export-bar" id="exportBtns">
+      <button id="exportAll" type="button" class="primary">⬇ Export all 4 sizes</button>
+    </div>
+    <p id="status" role="status" aria-live="polite"></p>
+    <p id="testlog"></p>
+  </section>
+</main>
+<footer class="credits">
+  Vice Coast Cover Studio — an original fan-made poster tool. Not affiliated with Rockstar Games.
+  Lettering: Anton &amp; Pacifico (SIL Open Font License, see app/fonts/). Sample photos ship with the app; your own photos never leave your machine.
+</footer>
+<script type="module" src="./src/main.js"></script>
+</body>
+</html>
