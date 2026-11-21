@@ -10,101 +10,101 @@
 <link rel="preload" href="fonts/Pacifico-Regular.ttf" as="font" type="font/ttf" crossorigin>
 </head>
 <body>
-<header class="topbar">
-  <div class="brand">
-    <span class="brand-mark" aria-hidden="true">★</span>
+<header class="masthead">
+  <div class="masthead-brand">
+    <span class="logo" aria-hidden="true">★</span>
     <div>
-      <h1>VICE COAST <span>Cover Studio</span></h1>
-      <p class="tagline">Your photos, Vice City style — multi-panel cover art, made offline.</p>
+      <h1>VICE COAST <em>Cover Studio</em></h1>
+      <p class="strapline">Your photos, Vice City style — multi-panel cover art, made offline.</p>
     </div>
   </div>
-  <div class="top-badges">
-    <span class="pill">100% offline</span>
-    <span class="pill">Photos stay on your device</span>
-    <span class="pill">Original art · Anton &amp; Pacifico (SIL OFL)</span>
-  </div>
+  <ul class="assurances">
+    <li>100% offline</li>
+    <li>Photos stay on your device</li>
+    <li>Original art · Anton &amp; Pacifico (SIL OFL)</li>
+  </ul>
 </header>
 
-<main class="studio">
-  <section class="controls" aria-label="Cover controls">
-    <div class="card" id="photosCard">
+<main class="workbench">
+  <aside class="panel" aria-label="Cover controls">
+    <section class="block" id="photosBlock">
       <h2>1 · Photos</h2>
-      <p class="hint">Load the samples, or drop in your own photos (up to 4). Click a panel in the preview, then drag it to move its photo and scroll to zoom.</p>
-      <div class="sample-tray" id="sampleTray"></div>
-      <div class="row">
-        <button class="btn primary" id="loadSamplesBtn" type="button">Load all 4 samples</button>
-        <button class="btn" id="uploadBtn" type="button">Upload photos…</button>
-        <input type="file" id="uploadInput" accept="image/*" multiple hidden>
+      <p class="note">Load the samples, or drop in your own photos (up to 4). Click a panel in the preview, then drag it to move its photo and scroll to zoom.</p>
+      <div class="tray" id="photoTray"></div>
+      <div class="actions">
+        <button class="button accent" id="btnSamples" type="button">Load all 4 samples</button>
+        <button class="button" id="btnUpload" type="button">Upload photos…</button>
+        <input type="file" id="fileInput" accept="image/*" multiple hidden>
       </div>
-      <div class="panel-list" id="panelList"></div>
-    </div>
+      <div class="slots" id="slotList"></div>
+    </section>
 
-    <div class="card" id="layoutCard">
+    <section class="block" id="frameBlock">
       <h2>2 · Layout</h2>
-      <div class="choice-grid" id="layoutPicker" role="group" aria-label="Panel layout"></div>
-      <p class="hint" id="layoutBlurb"></p>
-    </div>
+      <div class="picker" id="framePicker" role="group" aria-label="Panel layout"></div>
+      <p class="note" id="frameNote"></p>
+    </section>
 
-    <div class="card" id="gradeCard">
+    <section class="block" id="toneBlock">
       <h2>3 · Vice City grade</h2>
-      <div class="choice-grid swatches" id="gradePicker" role="group" aria-label="Colour grade"></div>
-    </div>
+      <div class="picker swatch-picker" id="tonePicker" role="group" aria-label="Colour grade"></div>
+    </section>
 
-    <div class="card" id="captionCard">
+    <section class="block" id="wordsBlock">
       <h2>4 · Caption</h2>
       <label class="field">
         <span>Title</span>
-        <input type="text" id="titleInput" maxlength="24" value="VICE COAST" autocomplete="off">
+        <input type="text" id="headlineInput" maxlength="24" value="VICE COAST" autocomplete="off">
       </label>
       <label class="field">
         <span>Subtitle</span>
-        <input type="text" id="subtitleInput" maxlength="48" value="chasing the neon sunset" autocomplete="off">
+        <input type="text" id="taglineInput" maxlength="48" value="chasing the neon sunset" autocomplete="off">
       </label>
       <div class="field">
         <span>Title colour</span>
-        <div class="color-row" id="titleColorPicker" role="group" aria-label="Title colour"></div>
+        <div class="ink-row" id="inkRow" role="group" aria-label="Title colour"></div>
       </div>
-      <label class="field slider-field">
-        <span>Title size <output id="titleSizeOut">100%</output></span>
-        <input type="range" id="titleSizeSlider" min="70" max="130" value="100">
+      <label class="field slider">
+        <span>Title size <output id="headOut">100%</output></span>
+        <input type="range" id="headSlider" min="70" max="130" value="100">
       </label>
-      <label class="field slider-field">
+      <label class="field slider">
         <span>Film grain <output id="grainOut">55%</output></span>
         <input type="range" id="grainSlider" min="0" max="100" value="55">
       </label>
-    </div>
+    </section>
 
-    <div class="card export-card" id="exportCard">
+    <section class="block export-block" id="exportBlock">
       <h2>5 · Export PNG</h2>
-      <p class="hint">One click, ready to post. The cover is drawn fresh at full size.</p>
-      <div class="export-grid" id="exportButtons"></div>
-      <p class="export-status" id="exportStatus" role="status"></p>
-    </div>
-  </section>
+      <p class="note">One click, ready to post. The cover is drawn fresh at full size.</p>
+      <div class="export-grid" id="exportGrid"></div>
+      <p class="export-note" id="exportNote" role="status"></p>
+    </section>
+  </aside>
 
-  <section class="preview" aria-label="Live preview">
-    <div class="preview-head">
+  <section class="stage" aria-label="Live preview">
+    <div class="stage-top">
       <h2>Live preview</h2>
-      <span class="preview-size" id="previewSize"></span>
+      <span class="stage-size" id="stageSize"></span>
     </div>
-    <div class="canvas-wrap" id="canvasWrap">
-      <canvas id="coverCanvas" width="1080" height="1080"></canvas>
-      <div class="canvas-hint" id="canvasHint">Drag a panel to move its photo · Scroll to zoom · Click a panel to select it</div>
+    <div class="stage-wrap" id="stageWrap">
+      <canvas id="stageCanvas" width="960" height="960"></canvas>
+      <div class="stage-hint" id="stageHint">Drag a panel to move its photo · Scroll to zoom · Click a panel to select it</div>
     </div>
-    <div class="preview-foot">
-      <span id="panelStatus">Panel 1 of 4 · Boulevard</span>
-      <button class="btn small" id="resetPanelBtn" type="button">Reset this panel</button>
-      <button class="btn small" id="shuffleBtn" type="button">Shuffle photos</button>
+    <div class="stage-bottom">
+      <span id="slotInfo">Panel 1 of 4 · Boulevard</span>
+      <button class="button small" id="btnResetSlot" type="button">Reset this panel</button>
+      <button class="button small" id="btnShuffle" type="button">Shuffle photos</button>
     </div>
   </section>
 </main>
 
-<footer class="foot">
+<footer class="colophon">
   <p>Vice Coast Cover Studio — an original cover maker. No Rockstar Games logo, artwork or font is used anywhere in this app; the lettering is Anton and Pacifico, shipped under the SIL Open Font License. Sample photos were made with an image model for this project.</p>
   <p>Tip: <strong>?shot=cover</strong> draws a full-frame cover for screenshots; <strong>?shot=editor</strong> opens the editor with the samples loaded.</p>
 </footer>
 
-<script type="module" src="src/main.js"></script>
-<script type="module" src="src/shots.js"></script>
+<script type="module" src="src/editor.js"></script>
+<script type="module" src="src/scenes.js"></script>
 </body>
 </html>
