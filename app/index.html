@@ -3,131 +3,108 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Vice Coast Cover Studio — GTA-style poster maker</title>
-<meta name="description" content="Turn your photos and a caption into a GTA-style multi-panel poster. Offline, free, no upload.">
-<link rel="stylesheet" href="./style.css">
+<title>Vice Coast Cover Studio — GTA-style cover art maker</title>
+<meta name="description" content="Turn your photos into GTA-style multi-panel cover art with a Vice City sunset grade. Runs offline in your browser; your photos never leave your machine.">
+<link rel="stylesheet" href="style.css">
+<link rel="preload" href="fonts/Anton-Regular.ttf" as="font" type="font/ttf" crossorigin>
+<link rel="preload" href="fonts/Pacifico-Regular.ttf" as="font" type="font/ttf" crossorigin>
 </head>
 <body>
 <header class="topbar">
-  <h1>Vice Coast Cover Studio</h1>
-  <p class="tagline">Your photos + one caption = a Vice City poster. No upload, no account, fully offline.</p>
-  <span class="offline">● works offline</span>
+  <div class="brand">
+    <span class="brand-mark" aria-hidden="true">★</span>
+    <div>
+      <h1>VICE COAST <span>Cover Studio</span></h1>
+      <p class="tagline">Your photos, Vice City style — multi-panel cover art, made offline.</p>
+    </div>
+  </div>
+  <div class="top-badges">
+    <span class="pill">100% offline</span>
+    <span class="pill">Photos stay on your device</span>
+    <span class="pill">Original art · Anton &amp; Pacifico (SIL OFL)</span>
+  </div>
 </header>
-<main class="app">
+
+<main class="studio">
   <section class="controls" aria-label="Cover controls">
-    <div class="card">
+    <div class="card" id="photosCard">
       <h2>1 · Photos</h2>
+      <p class="hint">Load the samples, or drop in your own photos (up to 4). Click a panel in the preview, then drag it to move its photo and scroll to zoom.</p>
+      <div class="sample-tray" id="sampleTray"></div>
       <div class="row">
-        <label class="field"><span>Add photos (up to 4)</span>
-          <input id="photoInput" type="file" accept="image/*" multiple>
-        </label>
+        <button class="btn primary" id="loadSamplesBtn" type="button">Load all 4 samples</button>
+        <button class="btn" id="uploadBtn" type="button">Upload photos…</button>
+        <input type="file" id="uploadInput" accept="image/*" multiple hidden>
       </div>
-      <div class="row">
-        <button id="loadSamples" type="button">Load sample photos</button>
-        <button id="fillAll" type="button" class="ghost">Fill all panels</button>
-      </div>
-      <div class="tray" id="tray" aria-label="Photo tray"></div>
-      <p class="hint">Click a photo in the tray to use it in the selected panel. Or drag &amp; drop image files anywhere on the page.</p>
+      <div class="panel-list" id="panelList"></div>
     </div>
 
-    <div class="card">
+    <div class="card" id="layoutCard">
       <h2>2 · Layout</h2>
-      <div class="row" id="layoutBtns"></div>
-      <p class="hint" id="slotLabel">Panel 1 of 4</p>
-      <label class="field"><span>Zoom — <output id="zoomVal">100%</output></span>
-        <input id="zoom" type="range" min="50" max="300" value="100">
+      <div class="choice-grid" id="layoutPicker" role="group" aria-label="Panel layout"></div>
+      <p class="hint" id="layoutBlurb"></p>
+    </div>
+
+    <div class="card" id="gradeCard">
+      <h2>3 · Vice City grade</h2>
+      <div class="choice-grid swatches" id="gradePicker" role="group" aria-label="Colour grade"></div>
+    </div>
+
+    <div class="card" id="captionCard">
+      <h2>4 · Caption</h2>
+      <label class="field">
+        <span>Title</span>
+        <input type="text" id="titleInput" maxlength="24" value="VICE COAST" autocomplete="off">
       </label>
-      <p class="hint" id="panHint">Drag on the cover to move the photo inside its panel.</p>
-      <div class="row"><button id="resetCrop" type="button" class="ghost">Reset crop</button></div>
-    </div>
-
-    <div class="card">
-      <h2>3 · Colour grade</h2>
-      <div class="row" id="gradeBtns"></div>
-      <p class="hint">Grades are gradient maps drawn on canvas — not a CSS filter.</p>
-    </div>
-
-    <div class="card">
-      <h2>4 · Lettering</h2>
-      <label class="field"><span>Main title (Anton, all caps)</span>
-        <input id="titleInput" type="text" maxlength="24" value="VICE COAST">
+      <label class="field">
+        <span>Subtitle</span>
+        <input type="text" id="subtitleInput" maxlength="48" value="chasing the neon sunset" autocomplete="off">
       </label>
-      <label class="field"><span>Subtitle (handwritten script)</span>
-        <input id="subtitleInput" type="text" maxlength="40" value="Sunset Heist">
+      <div class="field">
+        <span>Title colour</span>
+        <div class="color-row" id="titleColorPicker" role="group" aria-label="Title colour"></div>
+      </div>
+      <label class="field slider-field">
+        <span>Title size <output id="titleSizeOut">100%</output></span>
+        <input type="range" id="titleSizeSlider" min="70" max="130" value="100">
       </label>
-      <label class="field"><span>Small tagline</span>
-        <input id="taglineInput" type="text" maxlength="40" value="LEONIDA  •  EST. 2026">
+      <label class="field slider-field">
+        <span>Film grain <output id="grainOut">55%</output></span>
+        <input type="range" id="grainSlider" min="0" max="100" value="55">
       </label>
-      <div class="row">
-        <label class="field"><span>Title size — <output id="titleSizeVal">100%</output></span>
-          <input id="titleSize" type="range" min="60" max="150" value="100">
-        </label>
-        <label class="field"><span>Title colour</span>
-          <input id="titleColor" type="color" value="#ffffff">
-        </label>
-        <label class="field"><span>Title position</span>
-          <select id="titlePos">
-            <option value="bottom">Bottom</option>
-            <option value="top">Top</option>
-          </select>
-        </label>
-      </div>
-      <div class="checks">
-        <label><input id="outlineChk" type="checkbox" checked> Bold outline</label>
-        <label><input id="shadowChk" type="checkbox" checked> Drop shadow</label>
-      </div>
     </div>
 
-    <div class="card">
-      <h2>5 · Poster finish</h2>
-      <div class="checks">
-        <label><input id="frameChk" type="checkbox" checked> White frame</label>
-        <label><input id="halftoneChk" type="checkbox" checked> Halftone dots</label>
-        <label><input id="grainChk" type="checkbox" checked> Film grain</label>
-        <label><input id="vignetteChk" type="checkbox" checked> Vignette</label>
-        <label><input id="sunChk" type="checkbox" checked> Sunset disc</label>
-        <label><input id="palmsChk" type="checkbox" checked> Palm silhouettes</label>
-        <label><input id="skylineChk" type="checkbox" checked> City skyline</label>
-      </div>
-    </div>
-
-    <div class="card">
-      <h2>Presets &amp; play</h2>
-      <div class="row" id="presetBtns"></div>
-      <div class="row">
-        <button id="randomize" type="button">🎲 Surprise me</button>
-        <button id="undo" type="button">↩ Undo</button>
-        <button id="redo" type="button">↪ Redo</button>
-      </div>
-      <div class="row">
-        <button id="shareLink" type="button" class="share">🔗 Copy share link</button>
-      </div>
-      <p class="hint">The share link opens this exact cover — layout, grade, lettering and crops included.</p>
-    </div>
-
-    <div class="card">
-      <h2>Export size</h2>
-      <div class="row" id="sizeBtns"></div>
+    <div class="card export-card" id="exportCard">
+      <h2>5 · Export PNG</h2>
+      <p class="hint">One click, ready to post. The cover is drawn fresh at full size.</p>
+      <div class="export-grid" id="exportButtons"></div>
+      <p class="export-status" id="exportStatus" role="status"></p>
     </div>
   </section>
 
-  <section class="stage" aria-label="Cover preview">
-    <div class="preview-wrap">
-      <canvas id="cover" width="860" height="860" aria-label="The cover preview"></canvas>
+  <section class="preview" aria-label="Live preview">
+    <div class="preview-head">
+      <h2>Live preview</h2>
+      <span class="preview-size" id="previewSize"></span>
     </div>
-    <p class="hint">Click a panel to select it, then drag inside it to reposition the photo and use the zoom slider to crop.</p>
-    <div class="export-bar" id="exportBtns">
-      <button id="exportOne" type="button">⬇ Export this size</button>
-      <button id="exportAll" type="button" class="primary">⬇ Export all 4 sizes</button>
+    <div class="canvas-wrap" id="canvasWrap">
+      <canvas id="coverCanvas" width="1080" height="1080"></canvas>
+      <div class="canvas-hint" id="canvasHint">Drag a panel to move its photo · Scroll to zoom · Click a panel to select it</div>
     </div>
-    <p id="status" role="status" aria-live="polite"></p>
-    <p id="testlog"></p>
+    <div class="preview-foot">
+      <span id="panelStatus">Panel 1 of 4 · Boulevard</span>
+      <button class="btn small" id="resetPanelBtn" type="button">Reset this panel</button>
+      <button class="btn small" id="shuffleBtn" type="button">Shuffle photos</button>
+    </div>
   </section>
 </main>
-<footer class="credits">
-  Vice Coast Cover Studio — an original fan-made poster tool. Not affiliated with Rockstar Games.
-  Lettering: Anton &amp; Pacifico (SIL Open Font License, see app/fonts/). Sample photos ship with the app; your own photos never leave your machine.
+
+<footer class="foot">
+  <p>Vice Coast Cover Studio — an original cover maker. No Rockstar Games logo, artwork or font is used anywhere in this app; the lettering is Anton and Pacifico, shipped under the SIL Open Font License. Sample photos were made with an image model for this project.</p>
+  <p>Tip: <strong>?shot=cover</strong> draws a full-frame cover for screenshots; <strong>?shot=editor</strong> opens the editor with the samples loaded.</p>
 </footer>
-<script type="module" src="./src/main.js"></script>
+
+<script type="module" src="src/main.js"></script>
+<script type="module" src="src/shots.js"></script>
 </body>
 </html>

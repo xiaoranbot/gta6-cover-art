@@ -1,576 +1,471 @@
-// Vice Coast Cover Studio — cover engine.
+// Vice Coast Cover Studio — the cover engine.
 //
-// Draws GTA-style multi-panel poster art on a 2D canvas: layouts, gradient-map
-// colour grades, poster finishes and bold lettering. Pure browser code, no
-// dependencies, no network. Photos are graded pixel by pixel with a 256-entry
-// lookup table built from each grade's gradient stops.
+// Everything the cover looks like lives here: the multi-panel layouts, the Vice City
+// gradient-map grades, the skyline-and-sunset title block, the grain and vignette. It draws
+// onto any 2D canvas at any size, so the live preview and the exported PNG are the same
+// drawing — the export just asks for more pixels. No Rockstar art, logo or font is used:
+// the lettering is Anton and Pacifico, both shipped under the SIL Open Font License.
 
-// Seven multi-panel layouts. Each cell is a fraction of the cover:
-// x and y are the top-left corner, w and h the size, all from 0 to 1.
-export const LAYOUTS = {
-  full: {
-    name: 'Full Bleed',
-    cells: [{ x: 0, y: 0, w: 1, h: 1 }],
-  },
-  heroStrip: {
-    name: 'Hero + Strip',
-    cells: [
-      { x: 0, y: 0, w: 1, h: 0.62 },
-      { x: 0, y: 0.62, w: 1 / 3, h: 0.38 },
-      { x: 1 / 3, y: 0.62, w: 1 / 3, h: 0.38 },
-      { x: 2 / 3, y: 0.62, w: 1 / 3, h: 0.38 },
+export const SAMPLE_PHOTOS = [
+  { id: 'boulevard', file: 'samples/boulevard.jpg', label: 'Boulevard' },
+  { id: 'neon-street', file: 'samples/neon-street.jpg', label: 'Neon Street' },
+  { id: 'pier', file: 'samples/pier.jpg', label: 'Pier' },
+  { id: 'sunset-beach', file: 'samples/sunset-beach.jpg', label: 'Sunset Beach' },
+];
+
+// Panel rectangles are fractions of the cover (x, y, w, h). The title band is drawn over
+// the bottom of the panels, poster style, so every layout keeps its photos full-bleed.
+export const LAYOUTS = [
+  {
+    id: 'quad', name: 'Four Corners', blurb: 'Four equal panels, the classic cover grid.',
+    panels: [
+      { x: 0, y: 0, w: 0.5, h: 0.5 }, { x: 0.5, y: 0, w: 0.5, h: 0.5 },
+      { x: 0, y: 0.5, w: 0.5, h: 0.5 }, { x: 0.5, y: 0.5, w: 0.5, h: 0.5 },
     ],
   },
-  grid: {
-    name: '2 x 2 Grid',
-    cells: [
-      { x: 0, y: 0, w: 0.5, h: 0.5 },
-      { x: 0.5, y: 0, w: 0.5, h: 0.5 },
-      { x: 0, y: 0.5, w: 0.5, h: 0.5 },
-      { x: 0.5, y: 0.5, w: 0.5, h: 0.5 },
-    ],
-  },
-  comic: {
-    name: 'Comic Columns',
-    cells: [
-      { x: 0, y: 0, w: 0.36, h: 1 },
-      { x: 0.36, y: 0, w: 0.28, h: 1 },
-      { x: 0.64, y: 0, w: 0.36, h: 1 },
-    ],
-  },
-  trio: {
-    name: 'Triple Band',
-    cells: [
-      { x: 0, y: 0, w: 1, h: 0.34 },
-      { x: 0, y: 0.34, w: 1, h: 0.32 },
-      { x: 0, y: 0.66, w: 1, h: 0.34 },
-    ],
-  },
-  nine: {
-    name: 'Nine Grid',
-    cells: [
-      { x: 0, y: 0, w: 1 / 3, h: 1 / 3 },
-      { x: 1 / 3, y: 0, w: 1 / 3, h: 1 / 3 },
-      { x: 2 / 3, y: 0, w: 1 / 3, h: 1 / 3 },
-      { x: 0, y: 1 / 3, w: 1 / 3, h: 1 / 3 },
-      { x: 1 / 3, y: 1 / 3, w: 1 / 3, h: 1 / 3 },
-      { x: 2 / 3, y: 1 / 3, w: 1 / 3, h: 1 / 3 },
-      { x: 0, y: 2 / 3, w: 1 / 3, h: 1 / 3 },
-      { x: 1 / 3, y: 2 / 3, w: 1 / 3, h: 1 / 3 },
-      { x: 2 / 3, y: 2 / 3, w: 1 / 3, h: 1 / 3 },
-    ],
-  },
-  spotlight: {
-    name: 'Spotlight',
-    cells: [
+  {
+    id: 'hero', name: 'Hero + Trio', blurb: 'One big hero shot with three stacked beside it.',
+    panels: [
       { x: 0, y: 0, w: 0.62, h: 1 },
-      { x: 0.62, y: 0, w: 0.38, h: 1 / 3 },
-      { x: 0.62, y: 1 / 3, w: 0.38, h: 1 / 3 },
+      { x: 0.62, y: 0, w: 0.38, h: 1 / 3 }, { x: 0.62, y: 1 / 3, w: 0.38, h: 1 / 3 },
       { x: 0.62, y: 2 / 3, w: 0.38, h: 1 / 3 },
     ],
   },
-};
-
-// Six gradient-map colour grades. Stops are [position 0..1, red, green, blue].
-// mix blends the mapped colour over the photo, sat scales saturation,
-// contrast pivots around middle grey.
-export const GRADES = {
-  sunset: {
-    name: 'Vice Sunset',
-    mix: 0.55, sat: 1.15, contrast: 1.08,
-    stops: [
-      [0, 26, 10, 46],
-      [0.25, 96, 24, 88],
-      [0.5, 214, 72, 96],
-      [0.75, 255, 158, 76],
-      [1, 255, 226, 160],
+  {
+    id: 'full', name: 'Full Bleed', blurb: 'One photo edge to edge, title over the sunset.',
+    panels: [{ x: 0, y: 0, w: 1, h: 1 }],
+  },
+  {
+    id: 'split', name: 'Sunset Split', blurb: 'A wide shot on top, two below it.',
+    panels: [
+      { x: 0, y: 0, w: 1, h: 0.58 },
+      { x: 0, y: 0.58, w: 0.5, h: 0.42 }, { x: 0.5, y: 0.58, w: 0.5, h: 0.42 },
     ],
   },
-  neon: {
-    name: 'Neon Nights',
-    mix: 0.6, sat: 1.25, contrast: 1.05,
-    stops: [
-      [0, 8, 8, 28],
-      [0.3, 64, 16, 96],
-      [0.55, 224, 48, 160],
-      [0.8, 64, 220, 220],
-      [1, 235, 245, 255],
+  {
+    id: 'columns', name: 'Vice Columns', blurb: 'Three tall panels side by side.',
+    panels: [
+      { x: 0, y: 0, w: 1 / 3, h: 1 }, { x: 1 / 3, y: 0, w: 1 / 3, h: 1 },
+      { x: 2 / 3, y: 0, w: 1 / 3, h: 1 },
     ],
   },
-  teal: {
-    name: 'Palm Teal',
-    mix: 0.5, sat: 1.1, contrast: 1.04,
-    stops: [
-      [0, 6, 32, 40],
-      [0.3, 16, 96, 110],
-      [0.6, 64, 168, 160],
-      [0.85, 180, 225, 205],
-      [1, 240, 250, 240],
-    ],
-  },
-  candy: {
-    name: 'Candy Pop',
-    mix: 0.55, sat: 1.35, contrast: 1.06,
-    stops: [
-      [0, 40, 8, 60],
-      [0.3, 150, 32, 130],
-      [0.55, 255, 80, 140],
-      [0.8, 255, 170, 60],
-      [1, 255, 240, 200],
-    ],
-  },
-  noir: {
-    name: 'Noir',
-    mix: 0.85, sat: 0, contrast: 1.18,
-    stops: [
-      [0, 0, 0, 0],
-      [0.35, 60, 60, 60],
-      [0.7, 160, 160, 160],
-      [1, 255, 255, 255],
-    ],
-  },
-  gold: {
-    name: 'Vice Gold',
-    mix: 0.55, sat: 1.12, contrast: 1.06,
-    stops: [
-      [0, 30, 16, 8],
-      [0.3, 110, 66, 22],
-      [0.6, 214, 150, 52],
-      [0.85, 255, 205, 110],
-      [1, 255, 240, 200],
-    ],
-  },
-};
-
-// The four post sizes the app exports.
-export const EXPORT_SIZES = [
-  { id: 'square', label: 'Square 1080 × 1080', w: 1080, h: 1080 },
-  { id: 'portrait', label: 'Portrait 1080 × 1350', w: 1080, h: 1350 },
-  { id: 'wide', label: 'Wide 1920 × 1080', w: 1920, h: 1080 },
-  { id: 'story', label: 'Story 1080 × 1920', w: 1080, h: 1920 },
 ];
 
-// Five one-click presets. Each one sets layout, grade, lettering and two
-// finish switches together, so a single click restyles the whole cover.
-export const PRESETS = {
-  sunsetHeist: {
-    name: 'Sunset Heist', layout: 'heroStrip', grade: 'sunset',
-    title: 'VICE COAST', subtitle: 'Sunset Heist', tagline: 'LEONIDA  •  EST. 2026',
-    titlePos: 'bottom', titleColor: '#ffffff', frame: true, halftone: true,
+// A grade is a gradient map: each pixel's luminance is re-lit through these stops, so a
+// photo takes on a sunset, neon or noir grade while keeping its own shapes. The blend
+// keeps a little of the original colour so skin and skies stay believable.
+export const GRADES = [
+  {
+    id: 'sunset', name: 'Sunset Gold', strength: 0.82,
+    swatch: 'linear-gradient(135deg,#2a0a2e,#e0405f,#ff9a3d,#ffe9a8)',
+    stops: [[0, 26, 8, 40], [0.22, 110, 30, 74], [0.48, 224, 92, 62], [0.74, 255, 178, 84], [1, 255, 240, 198]],
   },
-  boulevardQueen: {
-    name: 'Boulevard Queen', layout: 'grid', grade: 'teal',
-    title: 'BOULEVARD', subtitle: 'Queen of the Coast', tagline: 'PALM ROW  •  GOLDEN HOUR',
-    titlePos: 'bottom', titleColor: '#fff7e6', frame: true, halftone: false,
+  {
+    id: 'neon', name: 'Neon Vice', strength: 0.85,
+    swatch: 'linear-gradient(135deg,#0b0430,#7a1fa2,#ff2e88,#37e6ff)',
+    stops: [[0, 10, 4, 44], [0.28, 96, 18, 128], [0.55, 232, 42, 158], [0.8, 90, 214, 232], [1, 255, 248, 238]],
   },
-  neonRun: {
-    name: 'Neon Run', layout: 'nine', grade: 'neon',
-    title: 'NEON RUN', subtitle: 'Midnight Drive', tagline: 'VICE CITY  •  AFTER DARK',
-    titlePos: 'top', titleColor: '#ffffff', frame: false, halftone: true,
+  {
+    id: 'teal', name: 'Teal Orange', strength: 0.8,
+    swatch: 'linear-gradient(135deg,#04222b,#0e7d8c,#ff8a3d,#ffd9a0)',
+    stops: [[0, 4, 26, 36], [0.3, 14, 96, 110], [0.55, 120, 140, 130], [0.78, 255, 150, 70], [1, 255, 226, 170]],
   },
-  comicStrip: {
-    name: 'Comic Strip', layout: 'comic', grade: 'candy',
-    title: 'COMIC STRIP', subtitle: 'Palm Shadows', tagline: 'ISSUE NO. 6  •  2026',
-    titlePos: 'bottom', titleColor: '#ffe9f2', frame: true, halftone: true,
+  {
+    id: 'noir', name: 'Noir', strength: 0.9,
+    swatch: 'linear-gradient(135deg,#000,#555,#bbb,#fff)',
+    stops: [[0, 0, 0, 0], [0.35, 52, 52, 58], [0.65, 150, 150, 158], [1, 255, 255, 255]],
   },
-  goldenHour: {
-    name: 'Golden Hour', layout: 'spotlight', grade: 'gold',
-    title: 'GOLDEN HOUR', subtitle: 'Last Light', tagline: 'OCEAN DRIVE  •  6 PM',
-    titlePos: 'bottom', titleColor: '#fff3d6', frame: true, halftone: false,
+  {
+    id: 'dusk', name: 'Palm Dusk', strength: 0.84,
+    swatch: 'linear-gradient(135deg,#160b2e,#5b2a86,#e05a7a,#ffb36b)',
+    stops: [[0, 18, 8, 44], [0.3, 84, 34, 118], [0.58, 214, 82, 112], [0.82, 255, 158, 92], [1, 255, 222, 168]],
   },
-};
+];
 
-// A fresh cover state. Photos hold loaded Image objects; slots hold one entry
-// per layout cell: which photo it shows, its zoom in percent, and its pan as
-// fractions of the cell size.
+export const TITLE_COLORS = [
+  { id: 'sunset', name: 'Sunset', stops: ['#fff3c4', '#ffb347', '#ff5e8a'] },
+  { id: 'white', name: 'White', stops: ['#ffffff', '#f2e9ff', '#d9c8ff'] },
+  { id: 'gold', name: 'Gold', stops: ['#fff8d6', '#ffd34d', '#e8930c'] },
+  { id: 'pink', name: 'Pink', stops: ['#ffe3f2', '#ff7ad9', '#ff2e88'] },
+  { id: 'cyan', name: 'Cyan', stops: ['#dffbff', '#7df3ff', '#19b8d8'] },
+];
+
+export const EXPORT_SIZES = [
+  { id: 'square', label: 'Square · 1080 × 1080', w: 1080, h: 1080 },
+  { id: 'portrait', label: 'Portrait · 1080 × 1350', w: 1080, h: 1350 },
+  { id: 'wide', label: 'Wide · 1920 × 1080', w: 1920, h: 1080 },
+  { id: 'story', label: 'Story · 1080 × 1920', w: 1080, h: 1920 },
+];
+
 export function defaultState() {
   return {
-    layout: 'heroStrip',
+    layout: 'hero',
     grade: 'sunset',
     title: 'VICE COAST',
-    subtitle: 'Sunset Heist',
-    tagline: 'LEONIDA  •  EST. 2026',
-    titlePos: 'bottom',
-    titleColor: '#ffffff',
-    titleSize: 100,
-    outline: true,
-    shadow: true,
-    frame: true,
-    halftone: true,
-    grain: true,
-    vignette: true,
-    sun: true,
-    palms: true,
-    skyline: true,
-    size: 'square',
-    photos: [],
-    slots: [],
+    subtitle: 'chasing the neon sunset',
+    titleColor: 'sunset',
+    titleSize: 1,
+    grain: 0.55,
+    vignette: 0.6,
+    // One slot per layout panel, up to four. A slot holds the photo key, its zoom and its
+    // pan (-1..1 in each axis); empty slots fall back to the first sample so the cover
+    // is never blank.
+    panels: [
+      { key: 'sample:boulevard', zoom: 1.12, ox: 0, oy: 0 },
+      { key: 'sample:neon-street', zoom: 1.12, ox: 0, oy: 0 },
+      { key: 'sample:pier', zoom: 1.12, ox: 0, oy: 0 },
+      { key: 'sample:sunset-beach', zoom: 1.12, ox: 0, oy: 0 },
+    ],
   };
 }
 
-// Build a slot list for a layout, keeping any slots the caller already had.
-export function slotsFor(layoutId, keep) {
-  const layout = LAYOUTS[layoutId] || LAYOUTS.heroStrip;
-  const out = [];
-  for (let i = 0; i < layout.cells.length; i++) {
-    const old = keep && keep[i];
-    if (old) {
-      out.push({ photo: old.photo, zoom: old.zoom, panX: old.panX, panY: old.panY });
-    } else {
-      out.push({ photo: -1, zoom: 100, panX: 0, panY: 0 });
-    }
-  }
-  return out;
+export function layoutById(id) {
+  return LAYOUTS.find((l) => l.id === id) ?? LAYOUTS[0];
 }
 
-// Apply a preset to a state object, keeping the current photos and slots.
-export function applyPreset(state, preset) {
-  state.layout = preset.layout;
-  state.grade = preset.grade;
-  state.title = preset.title;
-  state.subtitle = preset.subtitle;
-  state.tagline = preset.tagline;
-  state.titlePos = preset.titlePos;
-  state.titleColor = preset.titleColor;
-  state.frame = preset.frame;
-  state.halftone = preset.halftone;
-  state.slots = slotsFor(preset.layout, state.slots);
+export function gradeById(id) {
+  return GRADES.find((g) => g.id === id) ?? GRADES[0];
 }
 
-// ---- gradient-map grades -------------------------------------------------
+export function titleColorById(id) {
+  return TITLE_COLORS.find((c) => c.id === id) ?? TITLE_COLORS[0];
+}
 
-const lutCache = new Map();
+export function activePanelCount(state) {
+  return layoutById(state.layout).panels.length;
+}
 
-// Build the 256-entry lookup table for a grade by walking its gradient stops.
-export function gradeLUT(gradeId) {
-  const g = GRADES[gradeId] || GRADES.sunset;
-  if (lutCache.has(gradeId)) return lutCache.get(gradeId);
+const clamp01 = (v) => Math.max(0, Math.min(1, v));
+const clamp11 = (v) => Math.max(-1, Math.min(1, v));
+
+// Build a 256-entry lookup table from a grade's stops, interpolated per channel.
+export function buildGradeLut(stops) {
   const lut = new Uint8Array(256 * 3);
   for (let i = 0; i < 256; i++) {
     const t = i / 255;
-    let a = g.stops[0];
-    let b = g.stops[g.stops.length - 1];
-    for (let s = 0; s < g.stops.length - 1; s++) {
-      if (t >= g.stops[s][0] && t <= g.stops[s + 1][0]) {
-        a = g.stops[s];
-        b = g.stops[s + 1];
-        break;
-      }
+    let a = stops[0];
+    let b = stops[stops.length - 1];
+    for (let s = 0; s < stops.length - 1; s++) {
+      if (t >= stops[s][0] && t <= stops[s + 1][0]) { a = stops[s]; b = stops[s + 1]; break; }
     }
     const span = b[0] - a[0] || 1;
-    const f = Math.min(1, Math.max(0, (t - a[0]) / span));
+    const f = clamp01((t - a[0]) / span);
     lut[i * 3] = Math.round(a[1] + (b[1] - a[1]) * f);
     lut[i * 3 + 1] = Math.round(a[2] + (b[2] - a[2]) * f);
     lut[i * 3 + 2] = Math.round(a[3] + (b[3] - a[3]) * f);
   }
-  const built = { lut, mix: g.mix, sat: g.sat, contrast: g.contrast };
-  lutCache.set(gradeId, built);
-  return built;
+  return lut;
 }
 
-// Run a grade over raw pixel data in place: luminance picks the mapped colour,
-// then mix, saturation and contrast are applied in that order.
-export function gradeImageData(imageData, gradeId) {
-  const { lut, mix, sat, contrast } = gradeLUT(gradeId);
+// Re-light raw pixels through the lookup table, blended with the original.
+export function applyGradeToImageData(imageData, lut, strength) {
   const d = imageData.data;
+  const keep = 1 - strength;
   for (let i = 0; i < d.length; i += 4) {
-    const r = d[i];
-    const g = d[i + 1];
-    const b = d[i + 2];
-    const lum = Math.round(0.299 * r + 0.587 * g + 0.114 * b);
-    const li = lum * 3;
-    let nr = r + (lut[li] - r) * mix;
-    let ng = g + (lut[li + 1] - g) * mix;
-    let nb = b + (lut[li + 2] - b) * mix;
-    const gray = 0.299 * nr + 0.587 * ng + 0.114 * nb;
-    nr = gray + (nr - gray) * sat;
-    ng = gray + (ng - gray) * sat;
-    nb = gray + (nb - gray) * sat;
-    nr = (nr - 128) * contrast + 128;
-    ng = (ng - 128) * contrast + 128;
-    nb = (nb - 128) * contrast + 128;
-    d[i] = nr < 0 ? 0 : nr > 255 ? 255 : nr;
-    d[i + 1] = ng < 0 ? 0 : ng > 255 ? 255 : ng;
-    d[i + 2] = nb < 0 ? 0 : nb > 255 ? 255 : nb;
+    const lum = Math.round(0.2126 * d[i] + 0.7152 * d[i + 1] + 0.0722 * d[i + 2]);
+    const o = lum * 3;
+    d[i] = d[i] * keep + lut[o] * strength;
+    d[i + 1] = d[i + 1] * keep + lut[o + 1] * strength;
+    d[i + 2] = d[i + 2] * keep + lut[o + 2] * strength;
   }
   return imageData;
 }
 
-// ---- photo painting ------------------------------------------------------
-
-// Paint one photo into a pixel rectangle, cover-fitting it with the slot's
-// zoom and pan, then grading the pixels. A missing photo becomes a dark
-// gradient placeholder so empty cells still read as poster panels.
-function paintCell(ctx, img, rect, slot, gradeId) {
-  const { px, py, pw, ph } = rect;
-  if (!img || !img.naturalWidth) {
-    const grad = ctx.createLinearGradient(px, py, px + pw, py + ph);
-    grad.addColorStop(0, '#2a1e3d');
-    grad.addColorStop(1, '#120e1c');
-    ctx.fillStyle = grad;
-    ctx.fillRect(px, py, pw, ph);
-    ctx.fillStyle = 'rgba(255,255,255,0.10)';
-    ctx.font = `600 ${Math.max(12, Math.round(pw * 0.04))}px sans-serif`;
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText('ADD A PHOTO', px + pw / 2, py + ph / 2);
-    return;
-  }
-  const off = document.createElement('canvas');
-  off.width = pw;
-  off.height = ph;
-  const octx = off.getContext('2d');
-  const zoom = (slot && slot.zoom ? slot.zoom : 100) / 100;
-  const panX = slot ? slot.panX || 0 : 0;
-  const panY = slot ? slot.panY || 0 : 0;
-  const iw = img.naturalWidth;
-  const ih = img.naturalHeight;
-  const cover = Math.max(pw / iw, ph / ih) * zoom;
-  const dw = iw * cover;
-  const dh = ih * cover;
-  const dx = (pw - dw) / 2 + panX * pw;
-  const dy = (ph - dh) / 2 + panY * ph;
-  octx.drawImage(img, dx, dy, dw, dh);
-  const data = octx.getImageData(0, 0, pw, ph);
-  gradeImageData(data, gradeId);
-  octx.putImageData(data, 0, 0);
-  ctx.drawImage(off, px, py);
+// Draw a photo cover-fit into a rectangle, zoomed and panned. Pan is a fraction of the
+// slack the zoom leaves, so the photo can never be dragged out of its panel.
+export function drawPhotoCover(ctx, img, x, y, w, h, zoom, ox, oy) {
+  const iw = img.naturalWidth || img.width;
+  const ih = img.naturalHeight || img.height;
+  const s = Math.max(w / iw, h / ih) * zoom;
+  const dw = iw * s;
+  const dh = ih * s;
+  const slackX = Math.max(0, (dw - w) / 2);
+  const slackY = Math.max(0, (dh - h) / 2);
+  const dx = x + (w - dw) / 2 + clamp11(ox) * slackX;
+  const dy = y + (h - dh) / 2 + clamp11(oy) * slackY;
+  ctx.drawImage(img, dx, dy, dw, dh);
 }
 
-// ---- poster scene and finish ---------------------------------------------
-
-// A tiny deterministic random source so grain and skylines look the same
-// on every export of the same cover.
-function mulberry32(seed) {
-  let a = seed >>> 0;
-  return function () {
-    a |= 0;
-    a = (a + 0x6d2b79f5) | 0;
-    let t = Math.imul(a ^ (a >>> 15), 1 | a);
-    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-  };
-}
-
-function drawScene(ctx, state, W, H) {
-  if (state.sun) {
-    const sx = W * 0.78;
-    const sy = H * 0.2;
-    const sr = W * 0.1;
-    const glow = ctx.createRadialGradient(sx, sy, sr * 0.1, sx, sy, sr * 1.6);
-    glow.addColorStop(0, 'rgba(255, 186, 92, 0.85)');
-    glow.addColorStop(0.5, 'rgba(255, 120, 90, 0.35)');
-    glow.addColorStop(1, 'rgba(255, 120, 90, 0)');
-    ctx.fillStyle = glow;
-    ctx.beginPath();
-    ctx.arc(sx, sy, sr * 1.6, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.fillStyle = '#ffd9a0';
-    ctx.beginPath();
-    ctx.arc(sx, sy, sr * 0.55, 0, Math.PI * 2);
-    ctx.fill();
-  }
-  if (state.skyline) {
-    const rand = mulberry32(20261120);
-    const base = H * 0.985;
-    ctx.fillStyle = 'rgba(10, 8, 18, 0.85)';
-    let x = 0;
-    while (x < W) {
-      const bw = W * (0.04 + rand() * 0.06);
-      const bh = H * (0.05 + rand() * 0.12);
-      ctx.fillRect(x, base - bh, bw, bh);
-      if (rand() > 0.5) {
-        ctx.fillStyle = 'rgba(255, 214, 130, 0.8)';
-        ctx.fillRect(x + bw * 0.3, base - bh * 0.7, 3, 4);
-        ctx.fillStyle = 'rgba(10, 8, 18, 0.85)';
-      }
-      x += bw + W * 0.008;
+// A deterministic skyline: blocky towers with lit windows and a couple of palm trees,
+// drawn from a seed so every cover in a session shares the same coast. All original
+// line art, drawn in code. It sits inside the title band, a dark silhouette with
+// glowing windows, never a bar across the photos.
+export function drawSkyline(ctx, x, baseY, w, h, color) {
+  ctx.save();
+  ctx.fillStyle = color;
+  let bx = x;
+  let seed = 7;
+  const rand = () => { seed = (seed * 16807) % 2147483647; return seed / 2147483647; };
+  const winColors = ['#ffd34d', '#7df3ff', '#ff9de2'];
+  const win = Math.max(2, w * 0.007);
+  while (bx < x + w) {
+    const bw = w * (0.035 + rand() * 0.05);
+    const bh = h * (0.3 + rand() * 0.55);
+    ctx.fillRect(bx, baseY - bh, bw, bh);
+    if (rand() > 0.55) ctx.fillRect(bx + bw * 0.3, baseY - bh - h * 0.1, bw * 0.4, h * 0.1);
+    const nw = 2 + Math.floor(rand() * 4);
+    for (let k = 0; k < nw; k++) {
+      ctx.fillStyle = winColors[Math.floor(rand() * winColors.length)];
+      ctx.globalAlpha = 0.55 + rand() * 0.45;
+      ctx.fillRect(
+        bx + bw * (0.14 + rand() * 0.62),
+        baseY - bh * (0.14 + rand() * 0.68),
+        win, win,
+      );
     }
+    ctx.globalAlpha = 1;
+    ctx.fillStyle = color;
+    bx += bw + w * 0.014;
   }
-  if (state.palms) {
-    ctx.strokeStyle = 'rgba(8, 6, 14, 0.9)';
-    ctx.fillStyle = 'rgba(8, 6, 14, 0.9)';
+  // Palm trees: a leaning trunk and six fronds that rise and droop.
+  const palms = [x + w * 0.1, x + w * 0.88];
+  for (const px of palms) {
+    const ph = h * 0.85;
+    const topX = px + w * 0.018;
+    const topY = baseY - ph;
+    ctx.strokeStyle = color;
+    ctx.lineWidth = Math.max(2, w * 0.005);
     ctx.lineCap = 'round';
-    const palm = (bx, by, s, lean) => {
-      ctx.lineWidth = Math.max(3, W * 0.008);
+    ctx.beginPath();
+    ctx.moveTo(px, baseY);
+    ctx.quadraticCurveTo(px + w * 0.008, baseY - ph * 0.55, topX, topY);
+    ctx.stroke();
+    ctx.lineWidth = Math.max(1.5, w * 0.0035);
+    for (let f = 0; f < 6; f++) {
+      const a = ((-160 + f * 28) * Math.PI) / 180;
+      const len = w * 0.042;
       ctx.beginPath();
-      ctx.moveTo(bx, by);
-      ctx.quadraticCurveTo(bx + lean * s, by - s * 0.5, bx + lean * s * 1.4, by - s);
+      ctx.moveTo(topX, topY);
+      ctx.quadraticCurveTo(
+        topX + Math.cos(a) * len * 0.55, topY + Math.sin(a) * len * 0.55 - len * 0.28,
+        topX + Math.cos(a) * len, topY + Math.sin(a) * len + len * 0.34,
+      );
       ctx.stroke();
-      const tx = bx + lean * s * 1.4;
-      const ty = by - s;
-      for (let i = 0; i < 6; i++) {
-        const a = (-Math.PI / 6) - (i * Math.PI) / 7 + (lean > 0 ? 0.3 : -0.3);
-        ctx.lineWidth = Math.max(2, W * 0.005);
-        ctx.beginPath();
-        ctx.moveTo(tx, ty);
-        ctx.quadraticCurveTo(
-          tx + Math.cos(a) * s * 0.35,
-          ty + Math.sin(a) * s * 0.35 - s * 0.12,
-          tx + Math.cos(a) * s * 0.62,
-          ty + Math.sin(a) * s * 0.62 + s * 0.22,
-        );
-        ctx.stroke();
-      }
-    };
-    palm(W * 0.06, H * 0.99, H * 0.22, 1);
-    palm(W * 0.94, H * 0.99, H * 0.18, -1);
+    }
+  }
+  ctx.restore();
+}
+
+let noiseCanvas = null;
+function grainPattern(ctx) {
+  if (!noiseCanvas) {
+    noiseCanvas = document.createElement('canvas');
+    noiseCanvas.width = 140;
+    noiseCanvas.height = 140;
+    const nctx = noiseCanvas.getContext('2d');
+    const img = nctx.createImageData(140, 140);
+    for (let i = 0; i < img.data.length; i += 4) {
+      const v = 118 + Math.floor(Math.random() * 40);
+      img.data[i] = v; img.data[i + 1] = v; img.data[i + 2] = v; img.data[i + 3] = 255;
+    }
+    nctx.putImageData(img, 0, 0);
+  }
+  return ctx.createPattern(noiseCanvas, 'repeat');
+}
+
+// The title block: a sunset sky band with a glowing sun, the skyline along its top edge,
+// the big Anton title in a gradient with a dark keyline, and the Pacifico subtitle glowing
+// beneath it. The band height follows the cover so the lettering always has room.
+export function drawTitleBlock(ctx, state, W, H) {
+  const bandH = Math.round(H * (state.layout === 'full' ? 0.3 : 0.26));
+  const bandY = H - bandH;
+  const sky = ctx.createLinearGradient(0, bandY, 0, H);
+  sky.addColorStop(0, 'rgba(38,10,54,0)');
+  sky.addColorStop(0.35, 'rgba(58,14,74,0.82)');
+  sky.addColorStop(1, 'rgba(22,6,36,0.96)');
+  ctx.fillStyle = sky;
+  ctx.fillRect(0, bandY, W, bandH);
+
+  // Low sun glowing behind the title.
+  const sunR = bandH * 0.52;
+  const sunX = W * 0.5;
+  const sunY = bandY + bandH * 0.42;
+  const glow = ctx.createRadialGradient(sunX, sunY, sunR * 0.1, sunX, sunY, sunR * 1.9);
+  glow.addColorStop(0, 'rgba(255,196,110,0.5)');
+  glow.addColorStop(0.5, 'rgba(255,110,120,0.18)');
+  glow.addColorStop(1, 'rgba(255,110,120,0)');
+  ctx.fillStyle = glow;
+  ctx.fillRect(sunX - sunR * 2, sunY - sunR * 2, sunR * 4, sunR * 4);
+
+  drawSkyline(ctx, 0, bandY + bandH * 0.52, W, bandH * 0.5, '#12041f');
+
+  const title = (state.title || 'VICE COAST').toUpperCase();
+  const color = titleColorById(state.titleColor);
+  let size = Math.round(H * 0.115 * state.titleSize);
+  const maxW = W * 0.92;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  const fitTitle = () => {
+    ctx.font = `${size}px Anton, 'Arial Black', sans-serif`;
+    const w = ctx.measureText(title).width;
+    if (w > maxW) size = Math.max(24, Math.floor(size * (maxW / w)));
+    ctx.font = `${size}px Anton, 'Arial Black', sans-serif`;
+  };
+  fitTitle();
+  const titleY = bandY + bandH * 0.46;
+  const fill = ctx.createLinearGradient(0, titleY - size * 0.55, 0, titleY + size * 0.55);
+  fill.addColorStop(0, color.stops[0]);
+  fill.addColorStop(0.55, color.stops[1]);
+  fill.addColorStop(1, color.stops[2]);
+  ctx.save();
+  ctx.lineJoin = 'round';
+  ctx.strokeStyle = 'rgba(22,6,36,0.9)';
+  ctx.lineWidth = Math.max(3, size * 0.07);
+  ctx.strokeText(title, W / 2, titleY);
+  ctx.shadowColor = 'rgba(255,46,136,0.45)';
+  ctx.shadowBlur = size * 0.12;
+  ctx.fillStyle = fill;
+  ctx.fillText(title, W / 2, titleY);
+  ctx.restore();
+
+  const sub = (state.subtitle || '').trim();
+  if (sub) {
+    const subSize = Math.max(16, Math.round(size * 0.34));
+    ctx.font = `${subSize}px Pacifico, cursive`;
+    ctx.save();
+    ctx.shadowColor = '#ff2e88';
+    ctx.shadowBlur = subSize * 0.55;
+    ctx.fillStyle = '#ffd7ef';
+    ctx.fillText(sub, W / 2, bandY + bandH * 0.82);
+    ctx.restore();
   }
 }
 
-function drawFinish(ctx, state, W, H) {
-  if (state.halftone) {
-    const gap = Math.max(10, Math.round(W * 0.022));
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.07)';
-    for (let y = gap / 2; y < H; y += gap) {
-      for (let x = gap / 2; x < W; x += gap) {
-        const r = 1 + ((x + y) % (gap * 2)) / gap;
-        ctx.beginPath();
-        ctx.arc(x, y, r, 0, Math.PI * 2);
-        ctx.fill();
-      }
-    }
-  }
-  if (state.grain) {
-    const rand = mulberry32(1120);
-    const count = Math.floor((W * H) / 900);
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.05)';
-    for (let i = 0; i < count; i++) {
-      ctx.fillRect(rand() * W, rand() * H, 1.5, 1.5);
-    }
-    ctx.fillStyle = 'rgba(0, 0, 0, 0.06)';
-    for (let i = 0; i < count; i++) {
-      ctx.fillRect(rand() * W, rand() * H, 1.5, 1.5);
-    }
-  }
-  if (state.vignette) {
+// Draw the whole cover onto a canvas of W x H. `images` maps photo keys to loaded
+// <img> elements (or null); a missing photo falls back to the first sample image.
+export function renderCover(canvas, state, images, W, H) {
+  canvas.width = W;
+  canvas.height = H;
+  const ctx = canvas.getContext('2d');
+  ctx.fillStyle = '#12081f';
+  ctx.fillRect(0, 0, W, H);
+
+  const layout = layoutById(state.layout);
+  const grade = gradeById(state.grade);
+  const lut = buildGradeLut(grade.stops);
+  const gutter = Math.max(2, Math.round(Math.min(W, H) * 0.008));
+  const fallback = images.get('sample:boulevard') ?? null;
+
+  const panelCanvas = document.createElement('canvas');
+  const pctx = panelCanvas.getContext('2d');
+
+  layout.panels.forEach((rect, i) => {
+    const slot = state.panels[i] ?? state.panels[0];
+    const img = images.get(slot.key) ?? fallback;
+    const x = Math.round(rect.x * W) + (rect.x > 0 ? gutter / 2 : 0);
+    const y = Math.round(rect.y * H) + (rect.y > 0 ? gutter / 2 : 0);
+    const w = Math.round(rect.w * W) - (rect.x > 0 ? gutter / 2 : 0) - (rect.x + rect.w < 1 ? gutter / 2 : 0);
+    const h = Math.round(rect.h * H) - (rect.y > 0 ? gutter / 2 : 0) - (rect.y + rect.h < 1 ? gutter / 2 : 0);
+    if (!img || w <= 0 || h <= 0) return;
+    panelCanvas.width = w;
+    panelCanvas.height = h;
+    pctx.fillStyle = '#12081f';
+    pctx.fillRect(0, 0, w, h);
+    drawPhotoCover(pctx, img, 0, 0, w, h, slot.zoom, slot.ox, slot.oy);
+    const data = pctx.getImageData(0, 0, w, h);
+    applyGradeToImageData(data, lut, grade.strength);
+    pctx.putImageData(data, 0, 0);
+    ctx.drawImage(panelCanvas, x, y);
+    ctx.strokeStyle = 'rgba(255,255,255,0.28)';
+    ctx.lineWidth = Math.max(1, Math.round(Math.min(W, H) * 0.0012));
+    ctx.strokeRect(x + 0.5, y + 0.5, w - 1, h - 1);
+  });
+
+  drawTitleBlock(ctx, state, W, H);
+
+  // Poster frame: a dark outer edge and a thin bright keyline inside it.
+  const frame = Math.max(6, Math.round(Math.min(W, H) * 0.012));
+  ctx.strokeStyle = '#0d0518';
+  ctx.lineWidth = frame;
+  ctx.strokeRect(frame / 2, frame / 2, W - frame, H - frame);
+  ctx.strokeStyle = 'rgba(255,255,255,0.75)';
+  ctx.lineWidth = Math.max(1, Math.round(frame * 0.14));
+  ctx.strokeRect(frame + 2, frame + 2, W - frame * 2 - 4, H - frame * 2 - 4);
+
+  // Corner badge: the studio's own mark, top left.
+  const badgeH = Math.max(22, Math.round(H * 0.032));
+  const badgePad = Math.round(badgeH * 0.45);
+  ctx.font = `${Math.round(badgeH * 0.52)}px Anton, 'Arial Black', sans-serif`;
+  const badgeText = '★ VICE COAST';
+  const badgeW = ctx.measureText(badgeText).width + badgePad * 2;
+  const bx = frame + Math.round(W * 0.02);
+  const by = frame + Math.round(H * 0.02);
+  ctx.fillStyle = 'rgba(13,5,24,0.72)';
+  ctx.beginPath();
+  ctx.roundRect(bx, by, badgeW, badgeH, badgeH / 2);
+  ctx.fill();
+  ctx.fillStyle = '#ffcf5c';
+  ctx.textAlign = 'left';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(badgeText, bx + badgePad, by + badgeH / 2 + 1);
+
+  if (state.vignette > 0) {
     const vg = ctx.createRadialGradient(
-      W / 2, H / 2, Math.min(W, H) * 0.35,
-      W / 2, H / 2, Math.max(W, H) * 0.75,
+      W / 2, H / 2, Math.min(W, H) * 0.42, W / 2, H / 2, Math.max(W, H) * 0.75,
     );
-    vg.addColorStop(0, 'rgba(0, 0, 0, 0)');
-    vg.addColorStop(1, 'rgba(0, 0, 0, 0.45)');
+    vg.addColorStop(0, 'rgba(10,4,20,0)');
+    vg.addColorStop(1, `rgba(10,4,20,${0.42 * state.vignette})`);
     ctx.fillStyle = vg;
     ctx.fillRect(0, 0, W, H);
   }
-  if (state.frame) {
-    const inset = Math.max(8, W * 0.02);
-    ctx.strokeStyle = '#ffffff';
-    ctx.lineWidth = Math.max(4, W * 0.008);
-    ctx.strokeRect(inset, inset, W - inset * 2, H - inset * 2);
-  }
-}
 
-function drawLettering(ctx, state, W, H) {
-  const titleSize = Math.round(W * 0.105 * (state.titleSize / 100));
-  const atBottom = state.titlePos !== 'top';
-  const titleY = atBottom ? H - W * 0.085 : W * 0.14;
-  const subY = atBottom ? titleY - titleSize * 0.85 : titleY + titleSize * 0.85;
-  const tagY = atBottom ? subY - titleSize * 0.55 : subY + titleSize * 0.55;
-  // A soft dark scrim behind the whole title block keeps the lettering
-  // readable over bright photos, whichever end of the cover it sits on.
-  const scrimTop = Math.min(titleY, subY, tagY) - titleSize * 0.75;
-  const scrimBottom = Math.max(titleY, subY, tagY) + titleSize * 0.75;
-  const scrim = ctx.createLinearGradient(0, scrimTop, 0, scrimBottom);
-  scrim.addColorStop(0, 'rgba(8, 6, 16, 0)');
-  scrim.addColorStop(0.5, 'rgba(8, 6, 16, 0.42)');
-  scrim.addColorStop(1, 'rgba(8, 6, 16, 0)');
-  ctx.fillStyle = scrim;
-  ctx.fillRect(0, scrimTop, W, scrimBottom - scrimTop);
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  if (state.shadow) {
-    ctx.shadowColor = 'rgba(0, 0, 0, 0.55)';
-    ctx.shadowBlur = Math.round(titleSize * 0.12);
-    ctx.shadowOffsetY = Math.round(titleSize * 0.03);
-  } else {
-    ctx.shadowColor = 'transparent';
-    ctx.shadowBlur = 0;
-    ctx.shadowOffsetY = 0;
+  if (state.grain > 0) {
+    ctx.save();
+    ctx.globalAlpha = 0.05 + 0.07 * state.grain;
+    ctx.fillStyle = grainPattern(ctx);
+    ctx.fillRect(0, 0, W, H);
+    ctx.restore();
   }
-  ctx.font = `900 ${titleSize}px Anton, 'Arial Narrow', sans-serif`;
-  if (state.outline) {
-    ctx.strokeStyle = '#14101f';
-    ctx.lineWidth = Math.max(2, Math.round(titleSize * 0.07));
-    ctx.lineJoin = 'round';
-    ctx.strokeText((state.title || '').toUpperCase(), W / 2, titleY);
-  }
-  ctx.fillStyle = state.titleColor || '#ffffff';
-  ctx.fillText((state.title || '').toUpperCase(), W / 2, titleY);
-  ctx.shadowColor = 'transparent';
-  ctx.shadowBlur = 0;
-  ctx.shadowOffsetY = 0;
-  const subSize = Math.max(14, Math.round(W * 0.042));
-  ctx.font = `${subSize}px Pacifico, cursive`;
-  ctx.fillStyle = '#ffd9a0';
-  ctx.fillText(state.subtitle || '', W / 2, subY);
-  const tagSize = Math.max(10, Math.round(W * 0.018));
-  ctx.font = `700 ${tagSize}px 'Arial Narrow', sans-serif`;
-  try {
-    ctx.letterSpacing = `${Math.round(tagSize * 0.25)}px`;
-  } catch (e) {
-    // Older browsers ignore letter spacing; the tagline still draws fine.
-  }
-  ctx.fillStyle = 'rgba(255, 255, 255, 0.88)';
-  ctx.fillText((state.tagline || '').toUpperCase(), W / 2, tagY);
-  try {
-    ctx.letterSpacing = '0px';
-  } catch (e) {
-    // No-op on browsers without the property.
-  }
-}
-
-// ---- main entry points ---------------------------------------------------
-
-// Draw a whole cover onto any 2D context at the given pixel size.
-export function drawCover(ctx, state, W, H) {
-  ctx.clearRect(0, 0, W, H);
-  ctx.fillStyle = '#0d0b14';
-  ctx.fillRect(0, 0, W, H);
-  const layout = LAYOUTS[state.layout] || LAYOUTS.heroStrip;
-  const gutter = Math.max(2, Math.round(W * 0.004));
-  layout.cells.forEach((cell, i) => {
-    const slot = state.slots[i] || { photo: -1, zoom: 100, panX: 0, panY: 0 };
-    const photo = slot.photo >= 0 && state.photos[slot.photo] ? state.photos[slot.photo] : null;
-    const px = Math.round((cell.x + (cell.x > 0 ? gutter / W : 0)) * W);
-    const py = Math.round((cell.y + (cell.y > 0 ? gutter / H : 0)) * H);
-    const pw = Math.max(
-      1,
-      Math.round(cell.w * W)
-        - (cell.x > 0 ? gutter : 0)
-        - (cell.x + cell.w < 1 ? gutter : 0),
-    );
-    const ph = Math.max(
-      1,
-      Math.round(cell.h * H)
-        - (cell.y > 0 ? gutter : 0)
-        - (cell.y + cell.h < 1 ? gutter : 0),
-    );
-    paintCell(ctx, photo, { px, py, pw, ph }, slot, state.grade);
-  });
-  drawScene(ctx, state, W, H);
-  drawFinish(ctx, state, W, H);
-  drawLettering(ctx, state, W, H);
-}
-
-// Render a cover to a fresh canvas at the given pixel size.
-export function renderCover(state, W, H) {
-  const canvas = document.createElement('canvas');
-  canvas.width = W;
-  canvas.height = H;
-  drawCover(canvas.getContext('2d'), state, W, H);
   return canvas;
 }
 
-// Make sure the two display faces are ready before the first draw, so the
-// canvas lettering never falls back to a system font on the first paint.
-export async function ensureFonts() {
+// Render a cover at export size and hand back a PNG blob, ready to download.
+export function exportCover(state, images, width, height) {
+  const canvas = document.createElement('canvas');
+  renderCover(canvas, state, images, width, height);
+  return new Promise((resolve, reject) => {
+    canvas.toBlob((blob) => {
+      if (blob) resolve(blob);
+      else reject(new Error('PNG export failed'));
+    }, 'image/png');
+  });
+}
+
+// Load one photo (a sample file or an object URL) into an <img>.
+export function loadPhotoImage(src) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => resolve(img);
+    img.onerror = () => reject(new Error(`could not load ${src}`));
+    img.src = src;
+  });
+}
+
+export async function loadSampleImages() {
+  const images = new Map();
+  for (const photo of SAMPLE_PHOTOS) {
+    try {
+      images.set(`sample:${photo.id}`, await loadPhotoImage(photo.file));
+    } catch {
+      // A missing sample leaves its panels on the fallback; the cover still renders.
+    }
+  }
+  return images;
+}
+
+// Wait until the vendored Anton and Pacifico faces are usable, so titles never render
+// in a fallback font. Times out kindly: the cover still draws without them.
+export async function waitForCoverFonts() {
   try {
-    await Promise.all([
-      document.fonts.load('900 40px Anton'),
-      document.fonts.load('400 40px Pacifico'),
+    await Promise.race([
+      Promise.all([
+        document.fonts.load('40px Anton'),
+        document.fonts.load('40px Pacifico'),
+        document.fonts.ready,
+      ]),
+      new Promise((resolve) => setTimeout(resolve, 4000)),
     ]);
-  } catch (e) {
-    // Fonts fall back to system faces; the cover still draws.
+  } catch {
+    // Fallback fonts still draw a readable cover.
   }
 }
